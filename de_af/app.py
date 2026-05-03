@@ -1090,7 +1090,12 @@ async def resume_build(
 
 
 def main():
-    """Entry point for ``python -m de_af`` and the ``swe-af`` console script."""
+    """Entry point for ``python -m de_af`` and the ``de-af`` console script."""
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-v"):
+        from de_af import __version__
+        print(__version__)
+        sys.exit(0)
     app.run(port=8003, host="0.0.0.0")
 
 

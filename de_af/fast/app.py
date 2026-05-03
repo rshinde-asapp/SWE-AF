@@ -300,7 +300,12 @@ async def build(
 
 
 def main() -> None:
-    """Entry point for ``python -m de_af.fast`` and the ``swe-fast`` console script."""
+    """Entry point for ``python -m de_af.fast`` and the ``de-fast`` console script."""
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] in ("--version", "-v"):
+        from de_af import __version__
+        print(__version__)
+        sys.exit(0)
     app.run(port=int(os.getenv("PORT", "8004")), host="0.0.0.0")
 
 
