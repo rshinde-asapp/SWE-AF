@@ -41,6 +41,7 @@ _worktrees/
 
 # Claude Code
 .claude/
+.kilo/
 
 # Python packaging / dist
 dist/
