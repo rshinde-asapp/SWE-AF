@@ -32,17 +32,15 @@ async def test_simple_csv_to_parquet_pipeline():
         os.system(f"cd {repo_path} && git init && git config user.email 'test@test.com' && git config user.name 'Test'")
 
         # Call build endpoint
-        result = await app.execute(
+        result = await app.call(
             "de-planner.build",
-            input_data={
-                "goal": "Build a simple CSV to Parquet pipeline with data quality validation",
-                "repo_path": str(repo_path),
-                "config": {
-                    "runtime": "claude_code",
-                    "models": {"default": "sonnet"},
-                    "max_coding_iterations": 3,
-                    "enable_replanning": True,
-                },
+            goal="Build a simple CSV to Parquet pipeline with data quality validation",
+            repo_path=str(repo_path),
+            config={
+                "runtime": "claude_code",
+                "models": {"default": "sonnet"},
+                "max_coding_iterations": 3,
+                "enable_replanning": True,
             }
         )
 
@@ -108,15 +106,13 @@ async def test_data_quality_test_generation():
         repo_path.mkdir()
         os.system(f"cd {repo_path} && git init && git config user.email 'test@test.com' && git config user.name 'Test'")
 
-        result = await app.execute(
+        result = await app.call(
             "de-planner.build",
-            input_data={
-                "goal": "Add data quality checks for PII detection in user_events table",
-                "repo_path": str(repo_path),
-                "config": {
-                    "runtime": "claude_code",
-                    "models": {"default": "sonnet"},
-                },
+            goal="Add data quality checks for PII detection in user_events table",
+            repo_path=str(repo_path),
+            config={
+                "runtime": "claude_code",
+                "models": {"default": "sonnet"},
             }
         )
 
@@ -166,15 +162,13 @@ CREATE TABLE customer_dim (
 );
         """)
 
-        result = await app.execute(
+        result = await app.call(
             "de-planner.build",
-            input_data={
-                "goal": "Add customer_tier column to customer_dim with NOT NULL constraint",
-                "repo_path": str(repo_path),
-                "config": {
-                    "runtime": "claude_code",
-                    "models": {"default": "sonnet"},
-                },
+            goal="Add customer_tier column to customer_dim with NOT NULL constraint",
+            repo_path=str(repo_path),
+            config={
+                "runtime": "claude_code",
+                "models": {"default": "sonnet"},
             }
         )
 
