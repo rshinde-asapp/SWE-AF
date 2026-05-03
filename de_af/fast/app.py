@@ -17,7 +17,7 @@ from de_af.execution.envelope import unwrap_call_result as _unwrap
 from de_af.fast import fast_router
 from de_af.fast.schemas import FastBuildConfig, FastBuildResult, fast_resolve_models
 
-NODE_ID = os.getenv("NODE_ID", "swe-fast")
+NODE_ID = os.getenv("NODE_ID", "de-fast")
 
 app = Agent(
     node_id=NODE_ID,
