@@ -1,0 +1,77 @@
+{
+  "expectation_suite_name": "users_suite",
+  "expectations": [
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": {
+        "column": "user_id"
+      },
+      "meta": {
+        "description": "User ID must be unique across all records"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "user_id"
+      },
+      "meta": {
+        "description": "User ID is required and cannot be null"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "email"
+      },
+      "meta": {
+        "description": "Email is required for all users"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_match_regex",
+      "kwargs": {
+        "column": "email",
+        "regex": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      },
+      "meta": {
+        "description": "Email must be in valid email format"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "status",
+        "value_set": ["active", "inactive", "suspended"]
+      },
+      "meta": {
+        "description": "Status must be one of: active, inactive, suspended"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": {
+        "column": "created_at"
+      },
+      "meta": {
+        "description": "Created timestamp is required"
+      }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": {
+        "column": "created_at",
+        "min_value": "2020-01-01",
+        "max_value": "2030-12-31",
+        "parse_strings_as_datetimes": true
+      },
+      "meta": {
+        "description": "Created date must be within reasonable range (2020-2030)"
+      }
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "0.18.0"
+  },
+  "data_asset_type": "Dataset"
+}

@@ -1,0 +1,34 @@
+version: 2
+
+models:
+  - name: dim_users
+    description: "User dimension table with SCD Type 1 (overwrite) strategy"
+    columns:
+      - name: user_id
+        description: "Unique user identifier (business key)"
+        tests:
+          - unique
+          - not_null
+      - name: email
+        description: "User email address"
+        tests:
+          - not_null
+      - name: status
+        description: "Current user account status"
+        tests:
+          - accepted_values:
+              values: ['active', 'inactive', 'suspended']
+      - name: is_active
+        description: "Boolean flag indicating if user is active"
+        tests:
+          - not_null
+      - name: created_at
+        description: "Account creation timestamp"
+        tests:
+          - not_null
+      - name: days_since_creation
+        description: "Number of days since account creation"
+      - name: updated_at
+        description: "Last update timestamp"
+        tests:
+          - not_null

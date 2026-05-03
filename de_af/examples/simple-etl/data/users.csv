@@ -1,0 +1,11 @@
+user_id,email,status,created_at
+1,alice@example.com,active,2024-01-15
+2,bob@example.com,active,2024-01-16
+3,charlie@example.com,inactive,2024-01-17
+4,diana@example.com,active,2024-01-18
+5,eve@example.com,suspended,2024-01-19
+6,frank@example.com,active,2024-01-20
+7,grace@example.com,active,2024-01-21
+8,henry@example.com,inactive,2024-01-22
+9,iris@example.com,active,2024-01-23
+10,jack@example.com,active,2024-01-24

@@ -1,0 +1,24 @@
+version: 2
+
+models:
+  - name: stg_users
+    description: "Staging table for user data with basic cleaning and validation"
+    columns:
+      - name: user_id
+        description: "Unique user identifier"
+        tests:
+          - unique
+          - not_null
+      - name: email
+        description: "User email address"
+        tests:
+          - not_null
+      - name: status
+        description: "User account status"
+        tests:
+          - accepted_values:
+              values: ['active', 'inactive', 'suspended']
+      - name: created_at
+        description: "Account creation timestamp"
+        tests:
+          - not_null
