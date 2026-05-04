@@ -141,6 +141,49 @@ async def _read_memory_context(memory_fn: Callable | None, issue: dict) -> dict:
     return context
 
 
+async def _inject_skills_context(
+    memory_context: dict,
+    skills_dir: str,
+    issue: dict,
+    call_fn,
+    node_id: str,
+    config,
+    note_fn=None,
+) -> dict:
+    """Inject skills context into memory_context if skills_dir exists.
+
+    This is a non-blocking enrichment step. If skill discovery fails,
+    the original memory_context is returned unchanged.
+    """
+    if not os.path.isdir(skills_dir):
+        return memory_context
+
+    try:
+        skill_result = await call_fn(
+            f"{node_id}.run_skill_learner",
+            skills_dir=skills_dir,
+            issue=issue,
+            model=config.skill_learner_model,
+            ai_provider=config.ai_provider,
+        )
+        if skill_result.get("skills_context"):
+            memory_context["skills_context"] = skill_result["skills_context"]
+            if note_fn:
+                summary = skill_result.get("discovery_summary", "")
+                note_fn(
+                    f"Skills injected: {summary}",
+                    tags=["skill_learner", "injected"],
+                )
+    except Exception as e:
+        if note_fn:
+            note_fn(
+                f"Skill learner failed (non-blocking): {e}",
+                tags=["skill_learner", "error"],
+            )
+
+    return memory_context
+
+
 async def _write_memory_on_approve(
     memory_fn: Callable | None,
     issue: dict,
@@ -610,6 +653,18 @@ async def run_coding_loop(
 
         # --- Read shared memory context ---
         memory_context = await _read_memory_context(memory_fn, issue)
+
+        # --- Inject skills context if skills directory exists ---
+        skills_dir = os.path.join(dag_state.repo_path, "skills")
+        memory_context = await _inject_skills_context(
+            memory_context=memory_context,
+            skills_dir=skills_dir,
+            issue=issue,
+            call_fn=call_fn,
+            node_id=node_id,
+            config=config,
+            note_fn=note_fn,
+        )
 
         # --- 1. CODER ---
         try:
