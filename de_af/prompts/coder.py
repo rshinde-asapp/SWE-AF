@@ -262,6 +262,16 @@ def coder_task_prompt(
         for bp in bug_patterns[:5]:
             sections.append(f"- {bp.get('type', '?')} (seen {bp.get('frequency', 0)}x in {bp.get('modules', [])})")
 
+    # Skills context — domain-specific knowledge for this issue
+    skills_context = memory_context.get("skills_context")
+    if skills_context:
+        sections.append("\n## Applicable Skills")
+        sections.append(
+            "The following skills are relevant to this issue. "
+            "Follow their guidance when implementing:"
+        )
+        sections.append(skills_context)
+
     # Failure notes from upstream issues
     failure_notes = issue.get("failure_notes", [])
     if failure_notes:
