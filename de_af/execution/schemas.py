@@ -476,6 +476,7 @@ ROLE_TO_MODEL_FIELD: dict[str, str] = {
     "git": "git_model",
     "merger": "merger_model",
     "integration_tester": "integration_tester_model",
+    "skill_learner": "skill_learner_model",
 }
 
 MODEL_ROLE_KEYS: list[str] = list(ROLE_TO_MODEL_FIELD)
@@ -503,9 +504,11 @@ _RUNTIME_BASE_MODELS: dict[str, dict[str, str]] = {
     "claude_code": {
         **{field: "sonnet" for field in ALL_MODEL_FIELDS},
         "qa_synthesizer_model": "haiku",
+        "skill_learner_model": "haiku",
     },
     "open_code": {
         **{field: "minimax/minimax-m2.5" for field in ALL_MODEL_FIELDS},
+        "skill_learner_model": "minimax/minimax-m2.5",
     },
 }
 
@@ -915,3 +918,7 @@ class ExecutionConfig(BaseModel):
     @property
     def integration_tester_model(self) -> str:
         return self._model_for("integration_tester_model")
+
+    @property
+    def skill_learner_model(self) -> str:
+        return self._model_for("skill_learner_model")
