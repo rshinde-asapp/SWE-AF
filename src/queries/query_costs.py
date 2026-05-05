@@ -1,0 +1,47 @@
+def top_queries_by_cost() -> str:
+    """Return SQL for top 50 queries by credit cost with truncated query text."""
+    return """
+SELECT
+    LEFT(QUERY_TEXT, 200) AS QUERY_TEXT,
+    QUERY_ID,
+    QUERY_TYPE,
+    USER_NAME,
+    WAREHOUSE_NAME,
+    TOTAL_ELAPSED_TIME,
+    CREDITS_USED_CLOUD_SERVICES,
+    START_TIME
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE START_TIME >= %s
+  AND START_TIME < %s
+  AND CREDITS_USED_CLOUD_SERVICES > 0
+ORDER BY CREDITS_USED_CLOUD_SERVICES DESC
+LIMIT 50
+"""
+
+
+def credits_by_query_type() -> str:
+    """Return SQL for credit usage aggregated by query type."""
+    return """
+SELECT
+    QUERY_TYPE,
+    SUM(CREDITS_USED_CLOUD_SERVICES) AS TOTAL_CREDITS
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE START_TIME >= %s
+  AND START_TIME < %s
+GROUP BY QUERY_TYPE
+ORDER BY TOTAL_CREDITS DESC
+"""
+
+
+def credits_by_user() -> str:
+    """Return SQL for credit usage aggregated by user."""
+    return """
+SELECT
+    USER_NAME,
+    SUM(CREDITS_USED_CLOUD_SERVICES) AS TOTAL_CREDITS
+FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
+WHERE START_TIME >= %s
+  AND START_TIME < %s
+GROUP BY USER_NAME
+ORDER BY TOTAL_CREDITS DESC
+"""
