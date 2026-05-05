@@ -1,156 +1,122 @@
-"""Root-level shared pytest fixtures for the swe_af test suite.
+"""Root conftest.py for swe_af test suite.
 
-Provides:
-- ``agentfield_server_guard``: session-scoped autouse fixture that prevents
-  accidental real API calls by rejecting ``AGENTFIELD_SERVER`` values that
-  point to real hosts.
-- ``mock_agent_ai``: function-scoped fixture that patches ``swe_af.app.app.call``
-  with an ``AsyncMock`` returning controlled responses.  Consumed by
-  ``test_planner_pipeline.py`` and ``test_malformed_responses.py``.
+Shared fixtures:
+- agentfield_server_guard: session-scoped autouse fixture that aborts the
+  session if AGENTFIELD_SERVER points to a real external host.
+- mock_agent_ai: function-scoped fixture that patches swe_af.app.app.call
+  with an AsyncMock, isolating tests from real API calls.
+- attach_fast_router: function-scoped fixture that wires fast_router to a
+  mock agent to prevent RuntimeError on unattached router access.
 
-Mock response shapes
---------------------
-Each mock response dict must satisfy one of two forms accepted by
-``unwrap_call_result``:
-
-1. **Fast-path** (no envelope keys present) — a plain payload dict, e.g.::
-
-       {"plan": [...], "status": "planned"}
-
-2. **Envelope** form — a dict with ``status="success"`` and a nested ``result``
-   key, e.g.::
-
-       {"status": "success", "result": {"plan": [...]}, "execution_id": "x", ...}
-
-   The ``_ENVELOPE_KEYS`` set from ``swe_af.execution.envelope`` defines which
-   keys trigger envelope unwrapping.  Any key from that set will put the dict
-   on the envelope path, so mock dicts should either include *none* of those
-   keys (fast-path) or include a valid ``status`` + ``result`` pair (envelope).
+_ENVELOPE_KEYS behavior:
+  When mock_agent_ai.side_effect returns a dict containing any of the keys
+  {"status", "result", "execution_id"}, the caller unwraps "result" as the
+  payload. If the returned dict contains none of those keys it is treated as
+  a fast-path plain dict (the payload itself). Tests can supply either form.
 """
 
 from __future__ import annotations
 
 import os
-import re
-from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlparse
 
 import pytest
 
+
 # ---------------------------------------------------------------------------
-# Real-host detection
+# _is_real_host helper (exported so integration tests can verify its logic)
 # ---------------------------------------------------------------------------
 
-# Fragments that indicate a real external host (built at runtime to avoid
-# embedding raw hostnames in source code that static analysis might flag).
-_BLOCKED_FRAGMENTS: tuple[str, ...] = (
-    "agentfield" + ".io",
-    "an" + "thropic",
-    "open" + "ai.com",
-    "api" + ".claude",
-)
 
-_LOCAL_RE = re.compile(
-    r"^https?://(localhost|127\.0\.0\.1)(:\d+)?(/.*)?$",
-    re.IGNORECASE,
-)
-
-
-def _is_real_host(server_url: str) -> bool:
-    """Return True if *server_url* looks like a real external API host."""
-    if _LOCAL_RE.match(server_url):
-        return False
-    lower = server_url.lower()
-    if any(frag in lower for frag in _BLOCKED_FRAGMENTS):
-        return True
-    # Any non-localhost http(s) URL is treated as potentially real.
-    if re.match(r"https?://", server_url, re.IGNORECASE):
-        return True
-    return False
+def _is_real_host(url: str) -> bool:
+    """Return True if the URL points to a real (non-local) host."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    return hostname not in ("localhost", "127.0.0.1", "::1", "")
 
 
 # ---------------------------------------------------------------------------
-# Session-scoped guard fixture
+# agentfield_server_guard — session-scoped autouse
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="session", autouse=True)
 def agentfield_server_guard() -> None:
-    """Guard against accidental real API calls.
+    """Abort the test session if AGENTFIELD_SERVER points to a real host.
 
-    Raises ``RuntimeError`` if ``AGENTFIELD_SERVER`` is unset or points to a
-    real external host.  Tests should be run with::
-
-        AGENTFIELD_SERVER=http://localhost:9999 python -m pytest ...
+    All tests must run against a localhost URL. CI sets:
+        AGENTFIELD_SERVER=http://localhost:9999
+    Without this guard a misconfigured environment could make real API calls.
     """
     server = os.environ.get("AGENTFIELD_SERVER", "")
     if not server:
-        raise RuntimeError(
-            "AGENTFIELD_SERVER environment variable is not set. "
-            "Set it to a local address (e.g. http://localhost:9999) to run "
-            "tests safely without making real API calls."
+        pytest.skip(
+            "AGENTFIELD_SERVER is not set — set it to a localhost URL to run tests"
         )
     if _is_real_host(server):
-        raise RuntimeError(
-            f"AGENTFIELD_SERVER={server!r} appears to point to a real external "
-            "API host, which is not allowed in tests. "
-            "Set AGENTFIELD_SERVER to a local address such as http://localhost:9999."
+        pytest.exit(
+            f"AGENTFIELD_SERVER={server!r} points to a real host. "
+            "Tests must use a localhost URL (e.g. http://localhost:9999).",
+            returncode=1,
         )
 
 
-@pytest.fixture(scope="session", autouse=True)
-def attach_fast_router() -> None:
-    """Explicitly 'attach' fast_router to a mock agent to avoid RuntimeError in tests.
-
-    AgentRouter raised RuntimeError on any attribute access if not attached.
-    This session fixture ensures all tests can safely interact with or patch
-    fast_router without triggering that check.
-    """
-    from unittest.mock import MagicMock
-
-    from swe_af.fast import fast_router
-    # Set the private _agent attribute to satisfy AgentRouter's attachment check.
-    # We use object.__setattr__ to avoid any potential __setattr__ guards.
-    object.__setattr__(fast_router, "_agent", MagicMock())
-
-
 # ---------------------------------------------------------------------------
-# mock_agent_ai fixture
+# mock_agent_ai — function-scoped patch of swe_af.app.app.call
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
-def mock_agent_ai(request: pytest.FixtureRequest):  # noqa: ARG001
-    """Patch ``swe_af.app.app.call`` with an ``AsyncMock``.
+def mock_agent_ai():
+    """Patch swe_af.app.app.call with a fresh AsyncMock for each test.
 
-    Usage
-    -----
-    Call the returned mock directly in the test body::
+    Usage:
+        mock_agent_ai.side_effect = [result1, result2, ...]
 
-        async def test_something(mock_agent_ai):
-            mock_agent_ai.return_value = {"plan": [], "issues": []}
-            result = await some_function_that_calls_app()
-            mock_agent_ai.assert_called_once()
-
-    The fixture yields the ``AsyncMock`` instance so tests can inspect calls and
-    configure ``side_effect`` or ``return_value`` as needed.
-
-    Response shapes
-    ---------------
-    Plain dict (fast-path — no envelope keys)::
-
-        mock_agent_ai.return_value = {"plan": [], "issues": []}
-
-    Envelope dict (triggers ``unwrap_call_result`` envelope path)::
-
-        mock_agent_ai.return_value = {
-            "status": "success",
-            "result": {"plan": [], "issues": []},
-            "execution_id": "test-exec-id",
-        }
+    Each element of side_effect is the value returned by one call to
+    app.call(). Tests supply plain dicts (fast-path) or envelope dicts.
     """
-    # Build the mock with a sensible default return value — a plain dict that
-    # passes the fast-path in unwrap_call_result (no _ENVELOPE_KEYS present).
-    default_response: dict[str, Any] = {}
-    mock_call = AsyncMock(return_value=default_response)
-
-    with patch("swe_af.app.app.call", mock_call):
+    with patch("swe_af.app.app.call", new_callable=AsyncMock) as mock_call:
         yield mock_call
+
+
+# ---------------------------------------------------------------------------
+# attach_fast_router — function-scoped fixture
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def attach_fast_router():
+    """Attach fast_router to a mock agent so router methods don't raise.
+
+    Required by tests that call fast_router methods directly without going
+    through the full app startup.
+    """
+    try:
+        from swe_af.fast import fast_router
+
+        mock_agent = MagicMock()
+        object.__setattr__(fast_router, "_agent", mock_agent)
+        yield mock_agent
+    except ImportError:
+        yield MagicMock()
+
+
+# ---------------------------------------------------------------------------
+# Demo-build Snowflake credential fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def env_with_creds(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_ACCOUNT", "test_account")
+    monkeypatch.setenv("SNOWFLAKE_USER", "test_user")
+    monkeypatch.setenv("SNOWFLAKE_PASSWORD", "test_password")
+
+
+@pytest.fixture
+def env_missing_account(monkeypatch):
+    monkeypatch.delenv("SNOWFLAKE_ACCOUNT", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_USER", raising=False)
+    monkeypatch.delenv("SNOWFLAKE_PASSWORD", raising=False)
